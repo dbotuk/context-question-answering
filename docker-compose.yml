@@ -1,0 +1,50 @@
+version: "3"
+
+services:
+  ml_server:
+    container_name: ml_server
+    image: ml_server:1
+    build: ./src/ml_server
+    deploy:
+      resources:
+        limits:
+          memory: 50g
+    ports:
+      - ${ML_SERVER_PORT}:${ML_SERVER_PORT}
+    environment:
+      - ML_SERVER_PORT=${ML_SERVER_PORT}
+      - MLFLOW_TRACKING_URI=http://mlflow-server:${MLFLOW_PORT}
+      - AWS_ACCESS_KEY_ID=${MINIO_ACCESS_KEY_ID}
+      - AWS_SECRET_ACCESS_KEY=${MINIO_SECRET_ACCESS_KEY}
+      - MLFLOW_S3_ENDPOINT_URL=http://minio:${MINIO_SERVER_PORT}
+
+  mlflow-server:
+    image: mlflow-server:latest
+    container_name: mlflow-server
+    build: ./src/mlflow_server
+    ports:
+      - ${MLFLOW_PORT}:${MLFLOW_PORT}
+    environment:
+      - MLFLOW_TRACKING_URI=http://mlflow-server:${MLFLOW_PORT}
+      - MLFLOW_PORT=${MLFLOW_PORT}
+      - AWS_ACCESS_KEY_ID=${MINIO_ACCESS_KEY_ID}
+      - AWS_SECRET_ACCESS_KEY=${MINIO_SECRET_ACCESS_KEY}
+      - MLFLOW_S3_ENDPOINT_URL=http://minio:${MINIO_SERVER_PORT}
+    depends_on:
+      - minio
+
+  minio:
+    image: minio/minio:latest
+    container_name: minio
+    ports:
+      - ${MINIO_SERVER_PORT}:${MINIO_SERVER_PORT}
+      - ${MINIO_UI_PORT}:${MINIO_UI_PORT}
+    environment:
+      - MINIO_ROOT_USER=minio
+      - MINIO_ROOT_PASSWORD=miniopass
+    volumes:
+      - minio-data:/data
+    command: server /data --console-address ":9001"
+
+volumes:
+  minio-data:
